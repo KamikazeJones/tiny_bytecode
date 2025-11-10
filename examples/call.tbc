@@ -1,0 +1,7 @@
+# call a subroutine a that computes 2 3 + and returns
+$b $a - / o! :a:b # o = 1
+$a a!
+o@ $e ? 
+:a o@* o@* o@ + + ;
+:e
+a@ &

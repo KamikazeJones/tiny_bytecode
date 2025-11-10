@@ -15,9 +15,12 @@
   <h1>tiny_bytecode Playground</h1>
   <p>Füge Bytecode in das Feld ein und klicke <strong>Run</strong>. Kommentare mit <code>#</code> möglich.</p>
 
-  <textarea id="code"># Beispiel: drucke 'A' (ASCII 65)\n# Wir benutzen Memory-Write: lege 65 an Adresse 0 und gib es aus\n@ADDR:0 a! a@ . ^\n: a\n# Alternativ: labels & $ verwenden
-$a :a @ !
+  <label for="code"><strong>Bytecode</strong></label>
+  <textarea id="code"># Beispiel: lese ein Zeichen von input und gib es wieder aus\n, . ^
 </textarea>
+
+  <label for="input"><strong>Input (Stream, kein prompt)</strong></label>
+  <textarea id="input" placeholder="Gib hier Text ein; ',' liest nacheinander die Zeichen"></textarea>
 
   <div class="controls">
     <button id="run">Run</button>
@@ -39,11 +42,16 @@ $a :a @ !
       out.textContent = '';
       const vm = new TinyBytecodeVM();
       vm.onOutput = (ch) => { out.textContent += ch; };
-      // simple read: prompt once, return first char code, else -1
+
+      // Input buffer: read sequentially from the #input textarea, return -1 on EOF
+      const inputArea = document.getElementById('input');
+      const inputText = inputArea.value || '';
+      let inputPos = 0;
       vm.onRead = async () => {
-        const v = prompt('Eingabe (ein Zeichen) — Abbrechen/OK ohne Zeichen = EOF');
-        if (v === null || v === '') return -1;
-        return v.charCodeAt(0) & 0xFF;
+        if (inputPos >= inputText.length) return -1;
+        const code = inputText.charCodeAt(inputPos) & 0xFF;
+        inputPos += 1;
+        return code;
       };
 
       try {
