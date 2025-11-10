@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>tiny_bytecode Playground</title>
+  <style>
+    body{font-family:system-ui, -apple-system, 'Segoe UI', Roboto, Arial; margin:20px}
+    textarea{width:100%;height:240px;font-family:monospace}
+    pre#out{background:#111;color:#eee;padding:12px;border-radius:6px;min-height:80px}
+    .controls{margin:8px 0}
+  </style>
+</head>
+<body>
+  <h1>tiny_bytecode Playground</h1>
+  <p>Füge Bytecode in das Feld ein und klicke <strong>Run</strong>. Kommentare mit <code>#</code> möglich.</p>
+
+  <textarea id="code"># Beispiel: drucke 'A' (ASCII 65)\n# Wir benutzen Memory-Write: lege 65 an Adresse 0 und gib es aus\n@ADDR:0 a! a@ . ^\n: a\n# Alternativ: labels & $ verwenden
+$a :a @ !
+</textarea>
+
+  <div class="controls">
+    <button id="run">Run</button>
+    <button id="stop">Clear</button>
+  </div>
+
+  <h3>Output</h3>
+  <pre id="out"></pre>
+
+  <script src="./tbc_vm.js"></script>
+  <script>
+    const out = document.getElementById('out');
+    const codeEl = document.getElementById('code');
+    const runBtn = document.getElementById('run');
+    const stopBtn = document.getElementById('stop');
+    let running = false;
+
+    runBtn.addEventListener('click', async () => {
+      out.textContent = '';
+      const vm = new TinyBytecodeVM();
+      vm.onOutput = (ch) => { out.textContent += ch; };
+      // simple read: prompt once, return first char code, else -1
+      vm.onRead = async () => {
+        const v = prompt('Eingabe (ein Zeichen) — Abbrechen/OK ohne Zeichen = EOF');
+        if (v === null || v === '') return -1;
+        return v.charCodeAt(0) & 0xFF;
+      };
+
+      try {
+        vm.loadProgram(codeEl.value);
+        running = true;
+        await vm.run(200000);
+      } catch (e) {
+        out.textContent += '\n[ERROR] ' + e.message;
+      } finally {
+        running = false;
+      }
+    });
+
+    stopBtn.addEventListener('click', () => { out.textContent = ''; });
+  </script>
+</body>
+</html>
