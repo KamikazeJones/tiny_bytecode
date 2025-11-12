@@ -1,0 +1,70 @@
+# Variablen sind die Buchstaben a - z
+# beispielsweise legt 'a' die Adresse der Variablen a auf den Stack
+# <  shift left
+# >  shift right
+# @  peek, load
+# !  poke, store
+# +  addiert zwei Werte vom Stack und legt Ergebnis zurück
+# -  subtrahiert zwei Werte
+# :  der Doppelpunkt und der folgende Buchstabe sind eine Sprungmarke
+# $  sucht nach der Sprungmarke mit dem folgenden Buchstaben,
+#    legt die Adresse der gefundenen Sprungmarke auf den Stack
+# ?  Stack: a gt
+#    wenn a > 0, dann springe zu Adresse gt
+# &  jump subroutine
+# ;  return from subroutine
+# .  Gebe das Zeichen auf dem Stack aus (lower byte, ascii-code)
+# ,  Lese Zeichen von Tastatur und lege den Ascii-Code auf den Stack
+
+$b $a :a:b - > o!        # speichere 1 nach o
+
+$x x!                    
+$r r!
+$p p!
+$s s!                    # poke s,$s
+$h h!
+
+o s@ ?                   # Springe nach Sprungmarke s
+
+#           1         2         3         4         5    
+# 012345678901234567890123456789012345678901234567890123456789  
+:xHello World! ...
+:rGebe Deinen Namen ein und beende mit der Return-Taste:  .
+
+:hHallo                                                   .
+
+# print(count, str_address)
+:p                       
+a! c!                    # c = count, a = str_address
+$k k!                    # Sprungadressen k berechnen
+o@ o@ - i!               # i = 0     
+:k
+    i@ a@ + @ .          # a[i] ausgeben
+    i@ o@ + i!           # index erhöhen
+    c@ i@ - k@ ?         # i < c? dann springe zu Sprungmarke k
+;                        # return (print)
+
+:s
+o@<<<< o@<< - y!         # y = 16-4 = 12
+y@ x@ p@&                # print(y, x) 
+y@ o@< - .               # gebe Zeilenwechsel aus (10 = 0x0a) 
+o@<<<<<< o@<<< - r@ p@&  # print(56, r)
+
+o@<<< o@< + .            # gebe Zeilenwechsel aus (10 = 0x0a)
+o@<<< o@< - i!
+$k k!
+$e e!
+
+:k
+    , c!
+    c@ i@ h@ + !
+    i@ o@ + i!
+    o@<<< o@<< + o@ + t!
+    t@ c@ - k@ ?
+    c@ t@ - k@ ?
+:e
+o@<<<<< o@ +             # Ausrufezeichen (33) 
+i@ o@ - h@ + !           # an das String-Ende von h schreiben 
+o@<<< o@< + .            # gebe Zeilenwechsel aus (10 = 0x0a)
+i@ h@ p@&
+^

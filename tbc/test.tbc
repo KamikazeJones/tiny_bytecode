@@ -1,0 +1,44 @@
+# Für die weitere Entwicklung sollen Tests geschrieben werden.
+# Dazu wird eine Funktion benötigt, mit der sich die Korrektheit
+# einer Funktion überprüfen lässt.
+# Da sich das Ergebnis einer Funktion auf dem Stack befindet,
+# wird ein Funtion t erstellt, die n Werte auf dem Stack mit den
+# erwarteten Werten vergleicht.
+# Sind die Werte identisch, ist der Test bestanden und es wird Y 
+# ausgegeben.
+# wird N ausgegeben, Sowie die erwarteten und die tatsächlichen Werte.
+# Die Anzahl der zu vergleichenden Werte wird als erstes Argument
+# übergeben, gefolgt von den erwarteten Werten.
+# Die tatsächlichen Werte befinden sich bereits auf dem Stack.
+
+# Testfunktion t (... a3 a2 a1 ... e3 e2 e1 n -- )
+$t t!
+$x x!
+$a a!
+$b b!
+b@ a@ - > o!               # speichere 1 nach o
+o@ b@ ?                    # Springe nach Sprungmarke b
+$l l!
+
+:t
+    n!                     # n in Variable speichern
+    o@ i!                  # i = 1
+:l
+    i@ n@ - e@ ?           # i > n ? dann springe zu Sprungmarke e                           # speichere die e-Werte auf den x-Stack        
+    x@ i@ + !              # x(i) = e(i)
+    i@ o@ + i!             # i = i + 1
+    o@ l@ ?                # springe zu Sprungmarke l
+:e  
+$e e!  
+o@ i!                      # i = 1
+$l l!
+:l  
+# jetzt die Werte auf x-Stack mit den Werten auf dem Stack vergleichen:
+    i@ n@ - e@ ?           # i > n ? dann springe zu Sprungmarke e                           # speichere die e-Werte auf den x-Stack        
+    x@ i@ + @              # lade x(i)
+    i@ o@ + i!             # i = i + 1
+    o@ l@ ?                # springe zu Sprungmarke l
+:e;
+
+a:b:
+:x

@@ -1,0 +1,51 @@
+
+$s s!
+$y y!
+$w w!
+$b$a - > o!            # store 1 into o
+
+o@ s@ ?                # jump to label s
+
+:a:b                   # used to define o = 1 
+
+:y                     # y is label for header function             
+# header (caddr u -- cfieldaddr)
+u!                     # store length to u
+c!                     # store caddr to c
+
+# store length
+u@ h@ !          # store u to h-pointer
+
+# store 3 bytes of name, padded with spaces
+o@<<<<< s!             # s = 0x20 (space)
+h@ o@ + t!             # t = h+1
+o@ < o@ + d!           # d = 3
+o@ o@ - i!             # i = 0           
+$f f!                  # f:= start of for loop
+$k k!                  # k := skip read char, stay with space
+:f 
+     s@ x!             # x = s 
+     i@ o@ + u@ - k@ ? # i+1 > u? then use space
+     c@ i@ + @ x!      # x = *(c+i); read character from caddr+i
+:k  
+     x@ t@ i@ + !      # *(t+i) = x; store character in header
+     i@ o@ + i!        # i += 1
+     d@ i@ - f@ ?      # 3>i? then jump to start (f) of for-loop     
+
+l@ h@ o@<< + !   # *(*h+4) = l; store link to previous word
+h@ o@<< + o@< +   # return (*h+6)
+;
+
+:w>R
+:s 
+o@<<<<<<<<<<< h!        # h = 0x800
+h@ o@<<<< - l!          # l = h - 16
+
+w@ o@< y@&              # call header with ">R" 2
+
+h@@                     # put header result on stack 
+h@ o@< + @              # *(h + 2)
+h@ o@<< + @             # *(h + 4)
+h@ o@<< o@< + @         # *(h + 6) 
+h@ o@<<< + @            # *(h + 8)
+^
