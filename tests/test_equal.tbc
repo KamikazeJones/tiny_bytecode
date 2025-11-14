@@ -1,0 +1,76 @@
+# Test der Gleichheitsfunktion
+# Funktion e: ( x y addr -- ) springt zu addr wenn x == y
+
+# Initialize constant 1
+$b $a - / o !
+$e e!
+o@ $r ? 
+
+:a:b:
+
+# Equality test helper function
+:e
+  a !  # Store jump address
+  y ! x !  # Store values to compare
+  
+  y @ x @ - $s ?  # If y-x > 0, not equal, skip to :s
+  x @ y @ - $s ?  # If x-y > 0, not equal, skip to :s
+  
+  # If we reach here, x == y
+  # We need to jump to the address in a, bypassing the normal return
+  < # Remove return address from return stack (from the e& call)
+  o @ a @ ?  # Unconditional jump: push 1 and address, then ?
+  
+  :s  # Skip - values not equal, return normally
+  ;
+
+:r
+# Run test 1
+$t &
+
+# Run test 2
+$u &
+^
+
+# Test 1: Equal values (2 == 2, should output 'Y')
+:t
+  o @ o @ +  # 2
+  o @ o @ +  # 2
+  $q  # Address to jump to if equal
+  e@ &
+  
+  # If we reach here, values were NOT equal
+  $n &
+  ;
+  
+  :q  # Equal - output Y
+  $y &
+  ;
+
+# Test 2: Unequal values (2 == 3, should output 'N')
+:u
+  o @ o @ +  # 2
+  o @ o @ + o @ +  # 3
+  $v  # Address to jump to if equal
+  e@ &
+  
+  # If we reach here, values were NOT equal
+  $n &
+  ;
+  
+  :v  # Equal - output Y
+  $y &
+  ;
+
+
+# Output 'N' (78 = 64 + 16 - 2)
+:n
+  o @ * * * * * * o @ * * * * + o @ * -
+  .
+  ;
+
+# Output 'Y' (89 = 64 + 32 - 8 + 1)
+:y
+  o @ * * * * * * o @ * * * * * + o @ * * * - o @ +
+  .
+  ;

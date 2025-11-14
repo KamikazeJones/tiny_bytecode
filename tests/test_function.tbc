@@ -1,0 +1,135 @@
+# Test function for TBC
+# Stack: ( v1 v2 ... vN e1 e2 ... eN n -- result )
+# Output: 'Y' if all values match, 'N' if any mismatch
+# Result: 0 if success, index i (1-based) if mismatch at position i
+
+# Initialize constant 1
+$b $a - / o!
+:a:b
+
+# Save address of test function in variable t for later call
+$t t!
+
+# Example test: values 1,2,3 vs expected 1,2,3
+# Stack should be: 1 2 3 1 2 3 3
+o@  # 1
+o@ o@ +  # 2
+o@ o@ + o@ +  # 3
+o@  # 1 (expected)
+o@ o@ +  # 2
+o@ o@ +  # 2
+o@ o@ + o@ +  # 3 (n)
+t@ &  # Call test function via stored address
+^
+
+
+# Main test function
+:t
+  # Stack: v1 ... vN e1 ... eN n
+  c!    # Save n in variable c
+  c@    # Push n back for reverse
+  
+  # Reverse expected values: e1 e2 ... eN n → eN ... e2 e1
+  $r &  # Call reverse
+  
+  # Now stack is: v1 ... vN eN ... e1
+  # Compare pairs from top (i=1) to bottom (i=N)
+  o@ i!  # i = 1 (comparison counter)
+  $l l!  # Save loop address
+  
+  :l  # Compare loop
+    i@ c@ - o@ + $p ?  # If i <= N, continue (c-i >= 0, so c-i+1 > 0)
+    # All matched! Output 'Y' and return 0
+    $y &
+    i@ i@ -  # Push 0 as success result
+    ;
+  
+  :p  # Process pair i
+    # Stack: ... vi ... ei
+    # We need to compare top two values
+    $e $q &  # Call equality, if equal jump to :q (continue)
+    
+    # Not equal! Output 'N' with position i, return i
+    $n &
+    i@  # Push i as error position
+    ;
+  
+  :q  # Values matched, continue
+    i@ o@ + i!  # i++
+    o@ l@ ?  # Continue loop
+  ;
+
+
+# Reverse function
+# ( x1 x2 ... xn n -- xn xn-1 ... x2 x1 )
+# Reverses n values on stack, consumes n
+# Now callable via & - saves return address in variable t, restores at end
+# Uses variables: z, r, s, w, t (for return addr) and labels g,h,k,o,u,v
+:r
+  < t!  # Save return address from R-stack in variable t
+  z!  # Save n in z
+  z@ r!  # r = n (main loop counter)
+  $g g!  # Save main loop address
+  
+  :g  # Main loop: for r = n down to 1
+    r@ $h ?  # If r > 0, continue
+    t@ >  # Push return address back to R-stack
+    ;  # Return to caller
+  
+  :h  # Rotate top element to bottom position r
+    w!  # Save top value in w
+    r@ o@ - s!  # s = r - 1 (number of values to move)
+    
+    # Push s values to R-stack
+    $k k!
+    :k
+      s@ $o ?  # If s > 0, push one (renamed from m!)
+      # All pushed, now push w and pull back
+      w@  # Push saved value
+      r@ o@ - s!  # Reset s = r - 1
+      $u u!  # renamed from n!
+      o@ u@ ?  # Jump to pull loop
+    
+    :o  # Push one to R-stack (renamed from m)
+      >
+      s@ o@ - s!
+      o@ k@ ?  # Continue push loop
+    
+    :u  # Pull s values from R-stack (renamed from n)
+      s@ $v ?  # If s > 0, pull one (renamed from p!)
+      # All pulled, continue main loop
+      r@ o@ - r!  # r--
+      o@ g@ ?  # Continue main loop
+    
+    :v  # Pull one from R-stack (renamed from p)
+      <
+      s@ o@ - s!
+      o@ u@ ?  # Continue pull loop
+
+# Output 'N' (78 = 64 + 16 - 2)
+:n
+  o@ * * * * * * o@ * * * * + o@ * -
+  .
+  ;
+
+# Output 'Y' (89 = 64 + 32 - 8 + 1)
+:y
+  o@ * * * * * * o@ * * * * * + o@ * * * - o@ +
+  .
+  ;
+
+# Equality test helper function
+# ( x y addr -- ) jumps to addr if x == y, otherwise returns normally
+:e
+  a!  # Store jump address (a is free after init)
+  y! x!  # Store values to compare
+  
+  y@ x@ - $s ?  # If y-x > 0, not equal, skip jump
+  x@ y@ - $s ?  # If x-y > 0, not equal, skip jump
+  
+  # If we reach here, x == y, so jump to address
+  < # Remove return address from return stack
+  o@ a@ ?  # Unconditional jump: 1 and address
+  
+  :s  # Skip label - values not equal, return normally
+  ;

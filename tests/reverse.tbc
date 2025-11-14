@@ -1,0 +1,111 @@
+# Reverse function for TBC
+# Stack: ( x1 x2 ... xn n -- xn xn-1 ... x2 x1 n )
+# Reverses n values on stack, keeps n on top
+# Uses R-stack as temporary storage
+
+# Initialize constant 1
+$b $a - / o!
+:a:b
+
+# Calculate 48 (ASCII '0') = 32 + 16 = 2^5 + 2^4
+o@ * * * * * o@ * * * * +  # 48
+w!  # Store in w for later use
+
+# Test: reverse 1 2 3 with n=3
+# Expected result: 3 2 1 (without n)
+o@            # 1
+o@ o@ +       # 2
+o@ o@ + o@ +  # 3
+t! t@ t@ t@ + # 6
+o@ o@ + o@ + o@ +  # 4 (n)
+
+$u &  # Call u - push to R-stack
+# On r-stack should be: ( 6 3 2 1)
+
+# Print results (should be '1236')
+# Add 48 to each value before printing
+# Sollte ausgeben: 1 2 3 6
+<<<<
+w@ + . w@ + . w@ + . w@ + .
+
+# CR (13)
+o@ * * * * o@ * - o@ - .
+
+# LF (10)
+o@ * * * o@ * + .
+
+o@ o@ +  # 2
+o@       # 1
+$u &
+< w@ + .
+^
+
+# Helper: Push n values from D-stack to R-stack
+# ( x1 x2 ... xn n -- ) | R: ( -- xn ... x2 x1 )
+# Uses only temporary variable t
+:u
+  $l                         # 0:    V1 V2 V3 V4 N          -- R: Addr
+  :l
+    t! a! a@ t@ a@           # 0-01: V1 V2 V3 V4 N L        -- R: Addr      | over  
+    $s                       # 0-02: V1 V2 V3 V4 N L N      -- R: Addr      | skip address
+    ?                        # 0-03: V1 V2 V3 V4 N L N S    -- R: Addr      | (N>0? dann weiter bei skip)
+    # fertig
+    t! t! ;                  # 0-04: N L                    -- R: Addr      | DROP DROP and return
+                             # 0-05:                        -- R:           | 
+  :s
+                             # 0-06: V1 V2 V3 V4 N L        -- R: Addr      |
+    >                        # 0-07: V1 V2 V3 V4 N          -- R: Addr L    |
+    t! a! t@ a@              # 0-08: V1 V2 V3 N V4          -- R: Addr L    | swap
+    <                        # 0-09: V1 V2 V3 N V4 L        -- R: Addr      |
+    t! a! t@ a@              # 0-10: V1 V2 V3 N L V4        -- R: Addr      | swap
+    <                        # 0-11: V1 V2 V3 N L V4 Addr   -- R:           |
+    t! a! t@ a@              # 0-12: V1 V2 V3 N L Addr V4   -- R:           | swap
+    >                        # 0-13: V1 V2 V3 N L Addr      -- R: V4        |
+    >                        # 0-14: V1 V2 V3 N L           -- R: V4 Addr   |
+    >                        # 0-15: V1 V2 V3 N             -- R: V4 Addr L |
+    o@ -                     # 0-16: V1 V2 V3 N-1           -- R: V4 Addr L |
+    <                        # 0-17: V1 V2 V3 N-1 L         -- R: V4 Addr   |
+    t! t@ t@                 # 0-18: V1 V2 V3 N-1 L L       -- R: V4 Addr   | dup
+    o@                       # 0-19: V1 V2 V3 N-1 L L 1     -- R: V4 Addr   |
+    t! a! t@ a@              # 0-20: V1 V2 V3 N-1 L 1 L     -- R: V4 Addr   | swap
+    ?                        # 1-01: V1 V2 V3 N-1 L         -- R: V4 Addr   | jump to L (loop)
+
+# Helper: Pull n values from R-stack to D-stack
+# ( n -- x1 x2 ... xn ) | R: ( x1 x2 ... xn -- )
+:v
+  i@ > j@ >    # Save i, j
+  j!           # j = n
+  :e
+    j@ $f ?    # If j > 0, continue
+    < j! < i!  # Restore i, j
+    ;
+  :f
+    <          # Pull one value
+    j@ o@ - j! # j--
+    o@ $e ?    # Loop
+
+# Helper: Rotate top element to position n
+# ( x1 ... xn-1 xn n -- xn x1 ... xn-1 )
+:w
+  i@ > x@ >    # Save i, x
+  i!           # i = n
+  x!           # x = top value
+  i@ o@ - $u & # Push n-1 values to R-stack
+  x@           # Push saved value (now at bottom)
+  i@ o@ - $v & # Pull n-1 values back
+  < x! < i!    # Restore i, x
+  ;
+
+# Main reverse function
+# ( x1 x2 ... xn n -- xn xn-1 ... x2 x1 )
+:r
+  i@ >         # Save i on R-stack
+  i!           # i = n (loop counter)
+  :g
+    i@ $h ?    # If i > 0, continue
+    < i!       # Restore i
+    ;
+  :h
+    i@ $w &    # Rotate top to position i
+    i@ o@ - i! # i--
+    o@ $g ?    # Loop

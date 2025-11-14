@@ -43,8 +43,8 @@ class Byterpret:
         self.command_list = [
             ('+', self.add),
             ('-', self.sub),
-            ('>', self.shift_right),
-            ('<', self.shift_left), 
+            ('/', self.shift_right),
+            ('*', self.shift_left), 
             ('?', self.branch), # conditional jump
             ('&', self.call), # call
             (';', self.ret),  # return
@@ -54,7 +54,9 @@ class Byterpret:
             ('#', self.comment), # comment
             ('$', self.find), # find
             ('.', self.emit), # emit
-            (',', self.get) # getch
+            (',', self.get), # getch
+            ('>', self.to_rstack),
+            ('<', self.from_rstack)
         ]
 
     def dpush8(self, v):
@@ -124,11 +126,11 @@ class Byterpret:
         v1 = self.dpop16()
         self.dpush16((v1-v2) & 0xffff)
 
-    def shift_right(self): # '>'
+    def shift_right(self): # '/'
         v = self.dpop16()
         self.dpush16(v//2)
 
-    def shift_left(self): # '<'
+    def shift_left(self): # '*'
         v = self.dpop16()
         self.dpush16( (v*2) & 0xffff )
 
@@ -188,6 +190,14 @@ class Byterpret:
         v = ( ord(getch()) & 0xff )
         self.dpush16(v)
         print(chr(v), end="", flush=True)
+
+    def to_rstack(self): # '>'
+        v = self.dpop16()
+        self.rpush16(v)
+
+    def from_rstack(self): # '<'
+        v = self.rpop16()
+        self.dpush16(v)
 
     def getvaradr(self, vname):
         if vname < 'a' or vname > 'z':
