@@ -1,0 +1,85 @@
+# Reverse function using memory - simplified approach
+# Uses memory buffer to reverse stack values
+
+# Initialize constant 1
+$b $a - / o!
+:a:b
+
+# Calculate 48 (ASCII '0') for output
+o@ * * * * * o@ * * * * +  # 48
+w!
+
+# Test: reverse 1 2 3 4 with n=4
+o@                      # 1
+o@*                     # 2
+o@* o@ +                # 3
+o@**                    # 4
+o@**                    # 4 (n)
+
+$r &  # Call reverse
+
+# Print results (should be '41234')
+w@ + . w@ + . w@ + . w@ + . w@ + .
+
+# CR+LF
+o@ * * * * o@ * - o@ - .  # CR (13)
+o@ * * * o@ * + .          # LF (10)
+^
+
+# Main reverse function
+# ( x1 x2 ... xn n -- xn xn-1 ... x2 x1 n )
+:r
+  t! $y t@        # 0-01: X1 X2 ... Xn Addr N -- R: Ra   | push Addr of $y to D-stack
+  $s &            # 0-03: N                   -- R: Ra   | Store n values to memory
+  t! $y t@        # 0-04: Addr N              -- R: Ra   | push Addr of $y to D-stack                                      
+  $l &            # 0-05: Xn Xn-1 ... X1 N    -- R: Ra   | Load n values from memory (reversed!)
+  ;
+
+# Helper: Store n values from D-stack to memory at address
+# ( X1 X2 ... Xn Addr N -- )
+# Uses only temporary variables t and a, loop address in x
+:s
+  $p x!          # 0-00: X1 X2 ... Xn Addr N        -- R: Ra   | save loop address
+  t! t@ t@ >     # 0-01: X1 X2 ... Xn Addr N        -- R: Ra N | DUP >R
+  
+  :p
+    t! t@ t@     # 0-02: X1 X2 ... Xn Addr N N      -- R: Ra N | DUP
+    $q           # 0-03: X1 X2 ... Xn Addr N N Q    -- R: Ra N | skip address
+    ?            # 0-04: X1 X2 ... Xn Addr N        -- R: Ra N | if N>0, continue at :q
+    # done
+                 # 0-05: Addr 0                     -- R: Ra N | 
+    t! t! < ;    # 0-06: N                          -- R:      | DROP DROP R> and Return
+  
+  :q             # 0-07: X1 X2 ... Xn Addr N        -- R: Ra N |
+    t! a! a@     # 0-08: X1 X2 ... Xn Addr          -- R: Ra N |
+    !            # 0-09: X1 X2 ... Xn-1             -- R: Ra N | store Xn at Addr
+    a@ o@* +     # 0-10: X1 X2 ... Xn-1 Addr+2      -- R: Ra N |
+    t@ o@ -      # 0-11: X1 X2 ... Xn-1 Addr+2 N-1  -- R: Ra N |
+    o@ x@        # 0-12: X1 ... Xn-1 Addr+2 N-1 1 P -- R: Ra N |
+    ?            # 1-00: X1 ... Xn-1 Addr+2 N-1     -- R: Ra N | jump to P (loop)
+
+
+# Helper: Load n values from memory to D-stack
+# ( Addr N -- Xn Xn-1 ... X1 )
+# Uses only temporary variables t and a, loop address in x
+:l
+  $p x!          # 0-00: Addr N                     -- R: Ra   | save loop address
+  t! t@ t@ >     # 0-01: Addr N                     -- R: Ra N | DUP >R
+  :p
+    t! t@ t@     # 0-02: Addr N N                   -- R: Ra N | DUP
+    $q           # 0-03: Addr N N Q                 -- R: Ra N | skip address
+    ?            # 0-04: Addr N                     -- R: Ra N | if N>0, continue at :q
+    # done
+                 # 0-05: Xn Xn-1 ... X1 Addr 0      -- R: Ra N | 
+    t! t! < ;    # 0-06: Xn Xn-1 ... X1 N           -- R: Ra   | DROP DROP R>
+                                                               | store N back on D-Stack
+  :q             # 0-07: Addr N                     -- R: Ra N |
+    t! a! a@     # 0-08: Addr                       -- R: Ra N |
+    @            # 0-09: Xn                         -- R: Ra N | fetch Xn from Addr
+    a@ o@* +     # 0-10: Xn Addr+2                  -- R: Ra N |
+    t@ o@ -      # 0-11: Xn Addr+2 N-1              -- R: Ra N |
+    o@ x@        # 0-12: Xn Addr+2 N-1 1 P          -- R: Ra N |
+    ?            # 1-00: Xn Addr+2 N-1              -- R: Ra N | jump to P (loop)
+
+# Reserve memory buffer (30 slots should be enough)
+:y============================================================

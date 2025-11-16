@@ -7,129 +7,160 @@
 $b $a - / o!
 :a:b
 
-# Save address of test function in variable t for later call
-$t t!
+# test-01: values 1,2,3 vs expected 1,2,2
+# 'N'
+# Stack should be: 3
+o@            # 1
+o@ o@ +       # 2
+o@ * o@ +     # 3
+o@            # 1 (expected)
+o@ o@ +       # 2
+o@ *          # 2
+o@ * o@ + # 3 (n)
+$v & 
+$o &
 
-# Example test: values 1,2,3 vs expected 1,2,3
-# Stack should be: 1 2 3 1 2 3 3
-o@  # 1
-o@ o@ +  # 2
-o@ o@ + o@ +  # 3
-o@  # 1 (expected)
-o@ o@ +  # 2
-o@ o@ +  # 2
-o@ o@ + o@ +  # 3 (n)
-t@ &  # Call test function via stored address
+# test-02: values 1,2,3 vs expected 1,1,3
+# 'N'
+# Stack should be: 2
+o@            # 1
+o@ *          # 2
+o@ * o@ +     # 3
+o@            # 1 (expected)
+o@            # 1
+o@ * o@ +     # 3
+o@ * o@ +     # 3 (n)
+$v &  # Call test function via stored address
+$o &
+
+# test-03: values 1,2,3 vs expected 1,2,3
+# 'Y'
+# Stack should be: 0
+o@            # 1
+o@ o@ +       # 2
+o@ * o@ +     # 3
+o@            # 1 (expected)
+o@ *          # 2
+o@ * o@ +     # 3
+o@ * o@ +     # 3 (n)
+$v &  # Call test function via stored address
+$o &
 ^
 
+# Calculate 48 (ASCII '0') for output
+:o  # ( N )
+t! t@ t@                        #  N N       | DUP
+$n ?                            #            | N>0? then jump to :n  
+
+# N is zero, print 'Y'
+    o@ ****** o@ **** + o@ *** + o@ + .  #   | print 'Y'
+    o@ $z ?                              #   | jump to :z 
+:n
+    o@ ****** o@ **** + o@ * - .          #  | print 'N'
+:z
+  o@ ***** .                              #  | print blank
+  o@ ***** o@ **** + w!                   #  | w=48
+  w@ + .                                  #  | 0 if no error
+  $c & ;                                  #  | print CR+LF and Return  
+
+# CR+LF
+:c
+  o@ * * * * o@ * - o@ - .  # CR (13)
+  o@ * * * o@ * + .         # LF (10)
+;
 
 # Main test function
-:t
-  # Stack: v1 ... vN e1 ... eN n
-  c!    # Save n in variable c
-  c@    # Push n back for reverse
+:v
+  # Stack: V1 ... Vn E1 ... En N
+  # Uses only variables t, a, x, y, saves variable m  
+                 # 00: V1 ... Vn E1 ... En N   
   
-  # Reverse expected values: e1 e2 ... eN n → eN ... e2 e1
-  $r &  # Call reverse
-  
-  # Now stack is: v1 ... vN eN ... e1
-  # Compare pairs from top (i=1) to bottom (i=N)
-  o@ i!  # i = 1 (comparison counter)
-  $l l!  # Save loop address
-  
-  :l  # Compare loop
-    i@ c@ - o@ + $p ?  # If i <= N, continue (c-i >= 0, so c-i+1 > 0)
-    # All matched! Output 'Y' and return 0
-    $y &
-    i@ i@ -  # Push 0 as success result
-    ;
-  
-  :p  # Process pair i
-    # Stack: ... vi ... ei
-    # We need to compare top two values
-    $e $q &  # Call equality, if equal jump to :q (continue)
+  # Strategy: Compare from bottom up (Vn with En first, then Vn-1 with En-1, etc.)
+  m@ >           # 01: V1 ... Vn E1 En N              -- R: M | save m on R-Stack
+  $m m!          # 02: V1 ... Vn E1 En N              -- R: M | store $m to m
+
+  :m
+    $r &         # 03: V1 ... Vn En ... E1 N          -- R:   | after reverse
+    t! t@ t@     # 03: V1 ... Vn En En-1 ... E1 N N   -- R: M | DUP
+    $p ?         # 04: V1 ... Vn En En-1 ... E1 N     -- R: M | N>0? then continue at $p
+                 # 05: 0                              -- R: M | All matched (N=0)
+    < m!         # 06: 0                              -- R:   | restore m            
+    ;            # 07:                                -- R:   | return 0 
     
-    # Not equal! Output 'N' with position i, return i
-    $n &
-    i@  # Push i as error position
-    ;
-  
-  :q  # Values matched, continue
-    i@ o@ + i!  # i++
-    o@ l@ ?  # Continue loop
-  ;
+  :p  # Process pair           
+    o@ -           # 07: V1 ... Vn-1 Vn En En-1 ... E1 N-1         -- R: M     | decrement N
+    > $y <         # 08: V1 ... Vn-1 Vn En En-1 ... E1 Y-Addr N-1  -- R: M     | prepare for Save 
+    $s &           # 09: V1 ... Vn-1 Vn En N-1                     -- R: M     | save n-1 elements to memory
+    >              # 10: V1 ... Vn-1 Vn En                         -- R: M N-1 | Save N-1 on R-Stack
+    t! a!          # 11: V1 ... Vn-1                               -- R: M N-1 | store En in t and Vn in a
+    a@ t@ - $n ?   # 12: V1 ... Vn-1                               -- R: M N-1 | If Vn - En > 0, jump to :n
+    t@ a@ - $n ?   # 13: V1 ... Vn-1                               -- R: M N-1 | If En - Vn > 0, jump to :n
+  # Values matched, continue with next pair
+    # Restore the N-1 elements from memory 
+    $y <           # 14: V1 ... Vn-1 Y-Addr N-1              -- R: M     | prepare for Load 
+    $l &           # 15: V1 ... Vn-1 E1 ... En-1 N-1                     | Load N-1 elements from memory
+                   #                                                     | (reverses order)
+    o@ m@ ?        # 16: V1 ... Vn-1 E1 ... En-1 N-1         -- R: M     | NEXT (jump to :m)      
 
+  :n # not equal   # 13: V1 ... Vn-1                         -- R: M N-1
+    $y <           # 14: V1 ... Vn-1 Y-Addr N-1              -- R: M     | prepare for Save   
+    $s &           # 15: N-1                                 -- R: M     | drop Vs to memory 
+    t! < m! t@     # 16: N-1                                 -- R:       | restore m
+    o@ + ;         # 17: N                                   -- R:       | return N
 
-# Reverse function
-# ( x1 x2 ... xn n -- xn xn-1 ... x2 x1 )
-# Reverses n values on stack, consumes n
-# Now callable via & - saves return address in variable t, restores at end
-# Uses variables: z, r, s, w, t (for return addr) and labels g,h,k,o,u,v
+# Main reverse function
+# ( x1 x2 ... xn n -- xn xn-1 ... x2 x1 n )
 :r
-  < t!  # Save return address from R-stack in variable t
-  z!  # Save n in z
-  z@ r!  # r = n (main loop counter)
-  $g g!  # Save main loop address
-  
-  :g  # Main loop: for r = n down to 1
-    r@ $h ?  # If r > 0, continue
-    t@ >  # Push return address back to R-stack
-    ;  # Return to caller
-  
-  :h  # Rotate top element to bottom position r
-    w!  # Save top value in w
-    r@ o@ - s!  # s = r - 1 (number of values to move)
-    
-    # Push s values to R-stack
-    $k k!
-    :k
-      s@ $o ?  # If s > 0, push one (renamed from m!)
-      # All pushed, now push w and pull back
-      w@  # Push saved value
-      r@ o@ - s!  # Reset s = r - 1
-      $u u!  # renamed from n!
-      o@ u@ ?  # Jump to pull loop
-    
-    :o  # Push one to R-stack (renamed from m)
-      >
-      s@ o@ - s!
-      o@ k@ ?  # Continue push loop
-    
-    :u  # Pull s values from R-stack (renamed from n)
-      s@ $v ?  # If s > 0, pull one (renamed from p!)
-      # All pulled, continue main loop
-      r@ o@ - r!  # r--
-      o@ g@ ?  # Continue main loop
-    
-    :v  # Pull one from R-stack (renamed from p)
-      <
-      s@ o@ - s!
-      o@ u@ ?  # Continue pull loop
-
-# Output 'N' (78 = 64 + 16 - 2)
-:n
-  o@ * * * * * * o@ * * * * + o@ * -
-  .
+  t! $y t@        # 0-01: X1 X2 ... Xn Addr N -- R: Ra   | push Addr of $y to D-stack
+  $s &            # 0-03: N                   -- R: Ra   | Store n values to memory
+  t! $y t@        # 0-04: Addr N              -- R: Ra   | push Addr of $y to D-stack                                      
+  $l &            # 0-05: Xn Xn-1 ... X1 N    -- R: Ra   | Load n values from memory (reversed!)
   ;
 
-# Output 'Y' (89 = 64 + 32 - 8 + 1)
-:y
-  o@ * * * * * * o@ * * * * * + o@ * * * - o@ +
-  .
-  ;
+# Helper: Store n values from D-stack to memory at address
+# ( X1 X2 ... Xn Addr N -- MEM: )  => ( N -- MEM: Xn Xn-1 ... X1 )
+# Uses only temporary variables t and a, loop address in x
+:s
+  $p x!          # 0-00: X1 X2 ... Xn Addr N        -- R: Ra   | save loop address
+  t! t@ t@ >     # 0-01: X1 X2 ... Xn Addr N        -- R: Ra N | DUP >R
+  
+  :p
+    t! t@ t@     # 0-02: X1 X2 ... Xn Addr N N      -- R: Ra N | DUP
+    $q           # 0-03: X1 X2 ... Xn Addr N N Q    -- R: Ra N | skip address
+    ?            # 0-04: X1 X2 ... Xn Addr N        -- R: Ra N | if N>0, continue at :q
+    # done
+                 # 0-05: Addr 0                     -- R: Ra N | 
+    t! t! < ;    # 0-06: N                          -- R:      | DROP DROP R> and Return
+  
+  :q             # 0-07: X1 X2 ... Xn Addr N        -- R: Ra N |
+    t! a! a@     # 0-08: X1 X2 ... Xn Addr          -- R: Ra N |
+    !            # 0-09: X1 X2 ... Xn-1             -- R: Ra N | store Xn at Addr
+    a@ o@* +     # 0-10: X1 X2 ... Xn-1 Addr+2      -- R: Ra N |
+    t@ o@ -      # 0-11: X1 X2 ... Xn-1 Addr+2 N-1  -- R: Ra N |
+    o@ x@ ?      # 1-00: X1 ... Xn-1 Addr+2 N-1     -- R: Ra N | jump to P (loop)            
 
-# Equality test helper function
-# ( x y addr -- ) jumps to addr if x == y, otherwise returns normally
-:e
-  a!  # Store jump address (a is free after init)
-  y! x!  # Store values to compare
-  
-  y@ x@ - $s ?  # If y-x > 0, not equal, skip jump
-  x@ y@ - $s ?  # If x-y > 0, not equal, skip jump
-  
-  # If we reach here, x == y, so jump to address
-  < # Remove return address from return stack
-  o@ a@ ?  # Unconditional jump: 1 and address
-  
-  :s  # Skip label - values not equal, return normally
-  ;
+
+# Helper: Load n values from memory to D-stack
+# ( Addr N -- MEM: Xn Xn-1 ... X1 )
+# Uses only temporary variables t and a, loop address in x
+:l
+  $p x!          # 0-00: Addr N                     -- R: Ra   | save loop address
+  t! t@ t@ >     # 0-01: Addr N                     -- R: Ra N | DUP >R
+  :p
+    t! t@ t@     # 0-02: Addr N N                   -- R: Ra N | DUP
+    $q           # 0-03: Addr N N Q                 -- R: Ra N | skip address
+    ?            # 0-04: Addr N                     -- R: Ra N | if N>0, continue at :q
+    # done
+                 # 0-05: Xn Xn-1 ... X1 Addr 0      -- R: Ra N | 
+    t! t! < ;    # 0-06: Xn Xn-1 ... X1 N           -- R: Ra   | DROP DROP R>
+                                                               | store N back on D-Stack
+  :q             # 0-07: Addr N                     -- R: Ra N |
+    t! a! a@     # 0-08: Addr                       -- R: Ra N |
+    @            # 0-09: Xn                         -- R: Ra N | fetch Xn from Addr
+    a@ o@* +     # 0-10: Xn Addr+2                  -- R: Ra N |
+    t@ o@ -      # 0-11: Xn Addr+2 N-1              -- R: Ra N |
+    o@ x@        # 0-12: Xn Addr+2 N-1 1 P          -- R: Ra N |
+    ?            # 1-00: Xn Addr+2 N-1              -- R: Ra N | jump to P (loop)
+
+# Reserve memory buffer (30 slots should be enough)
+:y============================================================

@@ -42,7 +42,86 @@ $u &
 
 # Helper: Push n values from D-stack to R-stack
 # ( x1 x2 ... xn n -- ) | R: ( -- xn ... x2 x1 )
-# Uses only temporary variable t
+# Uses only temporary variable t, x and a
+:u
+  $x x!                      # 0:    V1 V2 V3 V4 N          -- R: Addr
+  :x
+    t! t@ t@                 # 0-01: V1 V2 V3 V4 N N        -- R: Addr      | dup
+    $s                       # 0-02: V1 V2 V3 V4 N N S      -- R: Addr      | skip address
+    ?                        # 0-03: V1 V2 V3 V4 N          -- R: Addr      | (N>0? dann weiter bei skip)
+    # fertig
+    t! ;                     # 0-04:                        -- R:           | DROP and return
+  :s
+                             # 0-05: V1 V2 V3 V4 N          -- R: Addr      |
+    t! a! <                  # 0-06: V1 V2 V3 Addr          -- R:           |
+    a@ > >                   # 0-07: V1 V2 V3               -- R: V4 Addr   |
+    t@ o@ -                  # 0-08: V1 V2 V3 N-1           -- R: V4 Addr   |       
+    o@ x@                    # 0-09: V1 V2 V3 N-1 1 X       -- R: V4 Addr   |
+    ?                        # 1-01: V1 V2 V3 N-1           -- R: V4 Addr   | jump to X (loop)
+
+# Helper: Pull n values from R-stack to D-stack
+# ( n -- x1 x2 ... xn ) | R: ( xn ... x2 x1 -- )
+# Uses only temporary variable t, a and x
+:v
+  $x x!                      # 0:    N                      -- R: Xn ... X2 X1 Addr
+  :x
+    t! t@ t@                 # 0-01: N N                    -- R: Xn ... X2 X1 Addr | dup
+    $s                       # 0-02: N N S                  -- R: Xn ... X2 X1 Addr | skip address
+    ?                        # 0-03: N                      -- R: Xn ... X2 X1 Addr | (N>0? continue at :s)
+    # fertig
+    t! ;                     # 0-04:                        -- R:                   | DROP and return
+
+  :s                         # 0-05: N                      -- R: Xn ... X2 X1 Addr |
+    t! < a! < a@ >           # 0-06: X1                     -- R: Xn ... X2 Addr    |
+    t@ o@ -                  # 0-07: X1 N-1                 -- R: Xn ... X2 Addr    |
+    o@ x@                    # 0-08: X1 N-1 1 X             -- R: Xn ... X2 Addr    |
+    ?                        # 1-01: X1 N-1                 -- R: Xn ... X2 Addr    | jump to X (loop)
+
+# Helper: Rotate top element to position n
+# ( x1 ... xn-1 xn n -- xn x1 ... xn-1 )
+# Uses only temporary variable t and y
+  
+:w             # 0:    X1 ... Xn-1 Xn N       -- R: Addr               |
+  @k >         # 0-01: X1 ... Xn-1 Xn N       -- R: Addr K             | save k on R-stack 
+  k! y!        # 0-02: X1 ... Xn-1            -- R: Addr K             | k=N, y=Xn
+  k@ o@ - k!   # 0-03: X1 ... Xn-1 N-1        -- R: Addr K             | k=k-1
+  $u &         # 0-04:                        -- R: Addr K Xn-1 ... X1 | push N-1 values
+  y@ k@        # 0-05: Xn N-1                 -- R: Addr K Xn-1 ... X1 | (Xn on D-stack, rest on R-stack)
+  $v &         # 0-05: Xn X1 X2 ... Xn-1      -- R: Addr K             | pull N-1 values back
+  < k!         # 0-06: Xn X1 ... Xn-1         -- R: Addr               | restore k
+  ;
+
+# Main reverse function
+# ( x1 x2 ... xn n -- xn xn-1 ... x2 x1 )
+# Uses only temporary variable t and a
+:r
+  $g                         # 0:    X1 X2 ... Xn N         -- R: Addr
+  :g
+    t! t@ t@                 # 0-01: X1 X2 ... Xn N N       -- R: Addr      | dup
+    $h                       # 0-02: X1 X2 ... Xn N N G     -- R: Addr      | continue address
+    ?                        # 0-03: X1 X2 ... Xn N N G S   -- R: Addr      | (N>0? continue)
+    # fertig
+    t! ;                     # 0-04: X1 X2 ... Xn N         -- R: Addr      | DROP and return
+                             # 0-05: Xn ... X2 X1           -- R:           |
+  :h
+                             # 0-06: X1 X2 ... Xn N G       -- R: Addr      |
+    >                        # 0-07: X1 X2 ... Xn N         -- R: Addr G    |
+    t! t@ t@                 # 0-08: X1 X2 ... Xn N N       -- R: Addr G    | dup
+    $w &                     # 0-09: X1 X2 ... Xn N         -- R: Addr G    | rotate
+                             # 0-10: Xn X1 X2 ... Xn-1      -- R: Addr G    |
+    o@ -                     # 0-11: Xn X1 X2 ... Xn-1 N-1  -- R: Addr G    |
+    <                        # 0-12: Xn X1 X2 ... Xn-1 N-1 G -- R: Addr    |
+    t! t@ t@                 # 0-13: Xn X1 ... Xn-1 N-1 G G -- R: Addr      | dup
+    o@                       # 0-14: Xn X1 ... Xn-1 N-1 G G 1 -- R: Addr    |
+    t! a! t@ a@              # 0-15: Xn X1 ... Xn-1 N-1 G 1 G -- R: Addr    | swap
+    ?                        # 1-01: Xn X1 ... Xn-1 N-1 G   -- R: Addr      | jump to G (loop)
+
+#################################################################
+# Variante mit nur zwei Variablen
+#
+# Helper: Push n values from D-stack to R-stack
+# ( x1 x2 ... xn n -- ) | R: ( -- xn ... x2 x1 )
+# Uses only temporary variable t and a
 :u
   $l                         # 0:    V1 V2 V3 V4 N          -- R: Addr
   :l
@@ -70,42 +149,3 @@ $u &
     t! a! t@ a@              # 0-20: V1 V2 V3 N-1 L 1 L     -- R: V4 Addr   | swap
     ?                        # 1-01: V1 V2 V3 N-1 L         -- R: V4 Addr   | jump to L (loop)
 
-# Helper: Pull n values from R-stack to D-stack
-# ( n -- x1 x2 ... xn ) | R: ( x1 x2 ... xn -- )
-:v
-  i@ > j@ >    # Save i, j
-  j!           # j = n
-  :e
-    j@ $f ?    # If j > 0, continue
-    < j! < i!  # Restore i, j
-    ;
-  :f
-    <          # Pull one value
-    j@ o@ - j! # j--
-    o@ $e ?    # Loop
-
-# Helper: Rotate top element to position n
-# ( x1 ... xn-1 xn n -- xn x1 ... xn-1 )
-:w
-  i@ > x@ >    # Save i, x
-  i!           # i = n
-  x!           # x = top value
-  i@ o@ - $u & # Push n-1 values to R-stack
-  x@           # Push saved value (now at bottom)
-  i@ o@ - $v & # Pull n-1 values back
-  < x! < i!    # Restore i, x
-  ;
-
-# Main reverse function
-# ( x1 x2 ... xn n -- xn xn-1 ... x2 x1 )
-:r
-  i@ >         # Save i on R-stack
-  i!           # i = n (loop counter)
-  :g
-    i@ $h ?    # If i > 0, continue
-    < i!       # Restore i
-    ;
-  :h
-    i@ $w &    # Rotate top to position i
-    i@ o@ - i! # i--
-    o@ $g ?    # Loop
