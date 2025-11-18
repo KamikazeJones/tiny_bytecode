@@ -1,0 +1,135 @@
+# I Instruction register. Contains the address of the next
+#   instruction in the threaded list of the current secon
+#   dary.
+# 
+# WA Word Address register. Contains the word address
+#    of the current keyword or the address of the first
+#    code body location of the current keyword.
+# 
+# CA Code Address register.
+# RS Return Stack register.
+# SP Stack Pointer register.
+# PC Processor Program Counter register.
+# 
+# The instruction set necessary to illustrate the inner interpreter is fairly simple.
+# A byte-oriented addressing scheme is presumed (ie: I -I- 2 is the next word
+# in memory following memory word location I). All instructions are presumed
+# to be one word in length. The following instruction set is assumed:
+# 
+# 
+# Instruction     Description
+# @A-B            The contents of the memory location word whose
+#                 address is in register A are ioaded into register B
+#                 (a 16-bit indirect fetch from A to B).
+# 
+# A=A + n         The contents of register A are incremented by the
+#                 constant n.
+# 
+# POP S->A        The S push down stack top entry is loaded to
+#                 register A and the stack pointer is adjusted.
+# 
+# PSH A-S         The A register contents are loaded to the S push
+#                 down stack and the stack pointer is adjusted.
+# 
+# A->PC           The contents of the A register are ioaded into the PC.
+#                 The processor will fetch its next instruction from this
+#                 location.
+#                 
+# JMP XX          Unconditional jump to the address contained in the
+#                 word foiiowing the jump instruction.
+# 
+# Es werden also 2 Stacks benötigt: R und S
+# 
+# 0050        7E
+# 0052        XE
+# 0054        LA
+# 0056        0058
+# 0058        POP SP->WA
+# 005A        JMP 0108    ; Jump to RUN
+# 
+# 0100 SEMI   0102        ; Code-Address of SEMI
+# 0102        POP RS->I
+# 0104 NEXT   @I->WA
+# 0106        I=I+2
+# 0108 RUN    @WA->CA
+# 010A        WA=WA+2
+# 010C        CA->PC
+# 
+# 0140 COLON  PSH I->RS
+# 0142        WA->I
+# 0144        JMP         ; Jump to NEXT
+# 0146        0104
+#          
+# Wir speichern die aktuelle Adresse des Stacks in r und s:
+
+# init
+$b $a - / o!                 # o = 1
+$m m! o@ m@ ?                # jump to :m
+$n n!                          
+:a:b
+:e7exeLACFs@ o@ - s! s@@ w! o@ n@ ?
+:m
+o@********** t! t@*** t@ + r! # r=0x0900
+t@*** t@ + t@/ + s!          # s=0x0950
+
+# weitere Variablen:
+# WA -- w
+# CA -- c
+# I  -- i
+# PC -- p
+ 
+# pushr:
+# r@ ! r@ o@ + r!            ; speichere den Wert auf dem Stack nach Adresse in r und erhöhe Adresse in r
+#                            ; **r = x; *r = *r + 1;                             
+# pops:
+# s@ o@ - s! s@@             ; verringere die Adresse in s um 1 und lege den Wert in der Adresse, auf die s zeigt, auf den Stack
+#                            ; *s = *s - 1; x = **s;
+
+# hole Wert und schreibe in Variable
+# c@ p! (CA -> PC) bzw. w@@ c! (@WA->CA)
+# 
+# i = i + 2:
+# @i o@* + i!
+
+# inner interpreter
+
+# init
+$b $a - / o!                 # o = 1
+$d d!
+$m m!
+$n n!
+$u u!
+o@********** t! t@*** t@ + r! # r=0x0900
+t@*** t@ + t@/ + s!          # s=0x0950
+
+# line 0056
+d@ d@ o@* -!                 # store d to address in d-2
+# line 0100
+m@ o@*- m@ !                 # store m to adress in m-2
+
+o@ $p ?                      # jump to :p
+:a:b
+:e
+7E                           #    0050        7E
+XE                           #    0052        XE
+LA                           #    0054        LA
+:d                           #    0056        0058 # see line 0056 
+s@ o@ - s! s@@ w!            #    0058        POP SP->WA           
+o@ u@ ?                      #    005A        JMP 0108 ; Jump to RUN                                               
+
+:m # :semi                   #    0100 SEMI   0102 # see line 0100 ; Code-Address of SEMI (headless word)
+r@ o@ - r! r@@ i!            #    0102        POP RS->I
+:n # :next
+i@@ w!                       #    0104 NEXT   @I->WA
+@i o@* + i!                  #    0106        I=I+2
+:u # :run                             
+w@@ c!                       #    0108 RUN    @WA->CA
+@w o@* + w!                  #    010A        WA=WA+2
+o@ c@ ?                      #    010C        CA->PC
+                                  
+i@ r@ ! r@ o@ + r!           #    0140 COLON  PSH I->RS
+w@ i!                        #    0142        WA->I
+o@ n@ ?                      #    0144        JMP 0104 ; Jump to NEXT
+
+:p # :prog
+

@@ -1,7 +1,7 @@
 # Variablen sind die Buchstaben a - z
 # beispielsweise legt 'a' die Adresse der Variablen a auf den Stack
-# <  shift left
-# >  shift right
+# *  shift left
+# /  shift right
 # @  peek, load
 # !  poke, store
 # +  addiert zwei Werte vom Stack und legt Ergebnis zurück
@@ -16,7 +16,7 @@
 # .  Gebe das Zeichen auf dem Stack aus (lower byte, ascii-code)
 # ,  Lese Zeichen von Tastatur und lege den Ascii-Code auf den Stack
 
-$b $a :a:b - > o!        # speichere 1 nach o
+$b $a :a:b - / o!        # speichere 1 nach o
 
 $x x!                    
 $r r!
@@ -45,13 +45,13 @@ o@ o@ - i!               # i = 0
 ;                        # return (print)
 
 :s
-o@<<<< o@<< - y!         # y = 16-4 = 12
+o@**** o@** - y!         # y = 16-4 = 12
 y@ x@ p@&                # print(y, x) 
-y@ o@< - .               # gebe Zeilenwechsel aus (10 = 0x0a) 
-o@<<<<<< o@<<< - r@ p@&  # print(56, r)
+y@ o@* - .               # gebe Zeilenwechsel aus (10 = 0x0a) 
+o@****** o@*** - r@ p@&  # print(56, r)
 
-o@<<< o@< + .            # gebe Zeilenwechsel aus (10 = 0x0a)
-o@<<< o@< - i!
+o@*** o@* + .            # gebe Zeilenwechsel aus (10 = 0x0a)
+o@*** o@* - i!
 $k k!
 $e e!
 
@@ -59,12 +59,12 @@ $e e!
     , c!
     c@ i@ h@ + !
     i@ o@ + i!
-    o@<<< o@<< + o@ + t!
+    o@*** o@** + o@ + t!
     t@ c@ - k@ ?
     c@ t@ - k@ ?
 :e
-o@<<<<< o@ +             # Ausrufezeichen (33) 
+o@***** o@ +             # Ausrufezeichen (33) 
 i@ o@ - h@ + !           # an das String-Ende von h schreiben 
-o@<<< o@< + .            # gebe Zeilenwechsel aus (10 = 0x0a)
+o@*** o@* + .            # gebe Zeilenwechsel aus (10 = 0x0a)
 i@ h@ p@&
 ^

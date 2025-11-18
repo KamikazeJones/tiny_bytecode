@@ -1,0 +1,178 @@
+# I Instruction register. Contains the address of the next
+#   instruction in the threaded list of the current secon
+#   dary.
+# 
+# WA Word Address register. Contains the word address
+#    of the current keyword or the address of the first
+#    code body location of the current keyword.
+# 
+# CA Code Address register.
+# RS Return Stack register (using TBC R-Stack via > and <)
+# SP Stack Pointer register (using TBC D-Stack)
+# PC Processor Program Counter register.
+# 
+# The instruction set necessary to illustrate the inner interpreter is fairly simple.
+# A byte-oriented addressing scheme is presumed (ie: I -I- 2 is the next word
+# in memory following memory word location I). All instructions are presumed
+# to be one word in length. The following instruction set is assumed:
+# 
+# 
+# Instruction     Description
+# @A-B            The contents of the memory location word whose
+#                 address is in register A are loaded into register B
+#                 (a 16-bit indirect fetch from A to B).
+# 
+# A=A + n         The contents of register A are incremented by the
+#                 constant n.
+# 
+# POP S->A        The S push down stack top entry is loaded to
+#                 register A and the stack pointer is adjusted.
+#                 Using TBC D-Stack directly (values already on stack)
+# 
+# PSH A->S        The A register contents are loaded to the S push
+#                 down stack and the stack pointer is adjusted.
+#                 Using TBC D-Stack directly
+# 
+# A->PC           The contents of the A register are loaded into the PC.
+#                 The processor will fetch its next instruction from this
+#                 location.
+#                 
+# JMP XX          Unconditional jump to the address contained in the
+#                 word following the jump instruction.
+# 
+# Es werden die TBC-internen Stacks verwendet:
+#   D-Stack für SP (Data Stack)
+#   R-Stack für RS (Return Stack) via > und <
+# 
+# 0050        7E
+# 0052        XE
+# 0054        LA
+# 0056        0058
+# 0058        POP SP->WA
+# 005A        JMP 0108    ; Jump to RUN
+# 
+# 0100 SEMI   0102        ; Code-Address of SEMI
+# 0102        POP RS->I
+# 0104 NEXT   @I->WA
+# 0106        I=I+2
+# 0108 RUN    @WA->CA
+# 010A        WA=WA+2
+# 010C        CA->PC
+# 
+# 0140 COLON  PSH I->RS
+# 0142        WA->I
+# 0144        JMP         ; Jump to NEXT
+# 0146        0104
+#
+# Variablen:
+# WA -- w
+# CA -- c
+# I  -- i
+# o  -- konstant 1
+#
+# Bootstrap: create constant 1 in o
+$b $a - / o!                 # o = 1
+:a:b
+
+# Jump to main program
+$n n!
+$u u!
+$x x!
+$l l!
+$m m! 
+$d d!
+$e e!
+$s s!
+$r r!
+$q q!
+$v v!
+
+# line 0056
+x@ x@ o@* - !                # store x to address in x-2
+# line 0100
+m@ m@ o@*- !                 # store m to adress in m-2
+
+l@ l@ o@*- !                 # store l to adress in l-2
+d@ d@ o@*- !                 # store d to adress in d-2
+s@ s@ o@*- !                 # store s to adress in s-2
+r@ r@ o@*- !                 # store r to adress in r-2
+q@ q@ o@*- !                 # store q to adress in q-2
+
+o@ $p ?                      # jump to $p
+
+:e
+7E                           #    0050        7E
+XE                           #    0052        XE
+LA                           #    0054        LA
+:x                           #    0056        0058
+                             #    0058        POP SP->WA (value already on D-stack)           
+w!                           #                store to w
+o@ u@ ?                      #    005A        JMP 0108 ; Jump to RUN                                               
+
+:m # :semi                   #    0100 SEMI   0102 ; Code-Address of SEMI (headless word)
+< i!                         #    0102        POP RS->I (using TBC R-stack)
+
+:n # :next
+i@@ w!                       #    0104 NEXT   @I->WA
+i@ o@* + i!                  #    0106        I=I+2
+
+:u # :run                             
+w@@ c!                       #    0108 RUN    @WA->CA
+w@ o@* + w!                  #    010A        WA=WA+2
+o@ c@ ?                      #    010C        CA->PC (jump to address in c)
+                                  
+# :colon (if needed as callable word)                                  
+:l # :COLON
+i@ >                         #    0140 COLON  PSH I->RS (using TBC R-stack)
+w@ i!                        #    0142        WA->I
+o@ n@ ?                      #    0144        JMP 0104 ; Jump to NEXT
+
+:d # :DUP (headless word)
+t! t@ t@                     # DUP
+o@ n@ ?                      # jump to NEXT
+
+:s # :SWAP  primitive (headless word)
+t! a! t@ a@                  # SWAP
+o@ n@ ?                      # jump to NEXT
+
+:r # :>R  primitive (headless word)
+>
+o@ n@ ?                      # jump to NEXT    
+
+:q # :R> primitive (headless word)
+<
+o@ n@ ?                      # jump to NEXT    
+
+:v # OVER secondary (headless word)
+(b c -- b c b)
+>R DUP R> SWAP SEMI
+
+:p # program start
+# Your threaded code program goes here
+# Example: call some words...
+# write OVER
+l@ o@* - v@ o@*- ! # store COLON-XT to adress in v-2
+v@ t! # t = v
+r@ o@* - t@ ! t@ o@* + t! # >R
+d@ o@* - t@ ! t@ o@* + t! # DUP
+q@ o@* - t@ ! t@ o@* + t! # R>
+s@ o@* - t@ ! t@ o@* + t! # SWAP
+m@ o@* - t@ ! t@ o@* + t! # SEMI
+
+# EXECUTE OVER
+o@ o@* o@* o@ +      # 1 2 3 on D-Stack
+v@ o@* -             # push OVER-XT to D-Stack
+# s@ o@* -           # push SWAP-XT to D-Stack 
+$f f!
+$b b!
+f@ f@ o@*- !         # *(f-2) = f
+f@ o@*- b@ !         # *b = f-2
+b i!                 # i = &b | i@@ = b@ = f-2 | i@@@ = f   
+o@ x@ ?              # jump to EXECUTE
+:b
+:f
+# write 'O' 'K' and exit
+# ASCII 'O' = 79, 'K' = 75
+o@ ****** o@ **** + o@ - .  # 'O'
+o@ ****** o@ **** + o@ ** - o@ - .  # 'K'
+^

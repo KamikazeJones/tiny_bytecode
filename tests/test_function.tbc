@@ -10,42 +10,79 @@ $b $a - / o!
 # test-01: values 1,2,3 vs expected 1,2,2
 # 'N'
 # Stack should be: 3
-o@            # 1
-o@ o@ +       # 2
-o@ * o@ +     # 3
-o@            # 1 (expected)
-o@ o@ +       # 2
-o@ *          # 2
-o@ * o@ + # 3 (n)
-$v & 
-$o &
-
+o@                 # 1
+o@ o@ +            # 2
+o@ * o@ +          # 3
+o@                 # 1 (expected)
+o@ o@ +            # 2
+o@ *               # 2
+o@ * o@ +          # 3 (n)
+o@***** $t $p &    # print test name
+$v &               # Call test function
+$o &               # print result  
+o@ $s ?
+  :ttest equal 1,2,3 = 1,2,2 (N 3)  .
+:s
 # test-02: values 1,2,3 vs expected 1,1,3
 # 'N'
 # Stack should be: 2
-o@            # 1
-o@ *          # 2
-o@ * o@ +     # 3
-o@            # 1 (expected)
-o@            # 1
-o@ * o@ +     # 3
-o@ * o@ +     # 3 (n)
-$v &  # Call test function via stored address
-$o &
+o@                 # 1
+o@ *               # 2
+o@ * o@ +          # 3
+o@ *               # 2 (expected)
+o@                 # 1
+o@ * o@ +          # 3
+o@ * o@ +          # 3 (n)
+o@***** $t $p &    # print test name
+$v &               # Call test function via
+$o &               # print result 
+o@ $s ?            
+  :ttest equal 1,2,3 = 2,1,3 (N 2)  .
 
-# test-03: values 1,2,3 vs expected 1,2,3
+:s
+# test-03: values -1,3 -1,3
+# 'N'
+# Stack should be: 0
+o@ o@* - t! t@        # -1
+t@ o@** +             # 3
+o@* o@ + t! t@ o@** - # -1
+t@                    # 3
+o@ *                  # 2 (n)
+
+o@***** $t $p &    # print test name
+$v &               # Call test function
+$o &               # print result 
+o@ $s ?            
+  :ttest equal -1,3 = -1,3          .
+
+:s
+# test-04: values 1,2,3 vs expected 1,2,3
 # 'Y'
 # Stack should be: 0
-o@            # 1
-o@ o@ +       # 2
-o@ * o@ +     # 3
-o@            # 1 (expected)
-o@ *          # 2
-o@ * o@ +     # 3
-o@ * o@ +     # 3 (n)
-$v &  # Call test function via stored address
-$o &
+o@                 # 1
+o@ o@ +            # 2
+o@ * o@ +          # 3
+o@                 # 1 (expected)
+o@ *               # 2
+o@ * o@ +          # 3
+o@ * o@ +          # 3 (n)
+o@***** $t $p &    # print test name 
+$v &               # Call test function
+$o &               # print result 
 ^
+  :ttest equal 1,2,3 = 1,2,3        .
+
+# print(count, str_address)
+:p                       
+a! c!                    # c = count, a = str_address
+$k k!                    # Sprungadressen k berechnen
+o@ o@ - i!               # i = 0     
+:k
+    i@ a@ + @ .          # a[i] ausgeben
+    i@ o@ + i!           # index erhöhen
+    c@ i@ - k@ ?         # i < c? dann springe zu Sprungmarke k
+;                        # return (print)
+
 
 # Calculate 48 (ASCII '0') for output
 :o  # ( N )
@@ -153,7 +190,7 @@ $n ?                            #            | N>0? then jump to :n
     # done
                  # 0-05: Xn Xn-1 ... X1 Addr 0      -- R: Ra N | 
     t! t! < ;    # 0-06: Xn Xn-1 ... X1 N           -- R: Ra   | DROP DROP R>
-                                                               | store N back on D-Stack
+                 #                                             | store N back on D-Stack
   :q             # 0-07: Addr N                     -- R: Ra N |
     t! a! a@     # 0-08: Addr                       -- R: Ra N |
     @            # 0-09: Xn                         -- R: Ra N | fetch Xn from Addr
